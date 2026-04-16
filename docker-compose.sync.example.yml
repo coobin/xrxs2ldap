@@ -1,0 +1,25 @@
+services:
+  xrxs2ldap:
+    build: .
+    container_name: xrxs2ldap_chencytech
+    env_file:
+      - .env
+    environment:
+      - LDAP_URI=ldap://openldap_chencytech:389
+      - LDAP_BASE_DN=dc=chencytech,dc=com
+      - LDAP_BIND_DN=cn=admin,dc=chencytech,dc=com
+      - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD}
+      - HR_SOURCE=json_file
+      - JSON_FILE_PATH=/app/samples/hr_data.json
+      - DRY_RUN=false
+      - RUN_ONCE=false
+      - SYNC_INTERVAL_SECONDS=3600
+    volumes:
+      - ./samples:/app/samples:ro
+    networks:
+      - ldap_network
+    restart: unless-stopped
+
+networks:
+  ldap_network:
+    external: true

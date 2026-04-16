@@ -1,0 +1,14 @@
+.env
+.env.local
+.venv/
+.venv.py314.bak/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.DS_Store
+*.log
+dist/
+build/
+*.egg-info/

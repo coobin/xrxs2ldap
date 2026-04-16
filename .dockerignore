@@ -1,0 +1,14 @@
+.git
+.gitignore
+.env
+.env.local
+.venv
+.venv.py314.bak
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+dist
+build
+*.egg-info

@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xrxs2ldap"
+version = "0.1.0"
+description = "Sync organization and employee data from HR systems into OpenLDAP."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "ldap3>=2.9.1",
+  "requests>=2.32.0",
+]
+
+[project.scripts]
+xrxs2ldap = "xrxs2ldap.cli:main"
+hr2ldap = "xrxs2ldap.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,2 @@
+# Optional: if you prefer host cron instead of the built-in scheduler, run one sync per hour.
+0 * * * * cd /opt/xrxs2ldap && /opt/xrxs2ldap/deploy/run_sync.sh >> /var/log/xrxs2ldap.log 2>&1

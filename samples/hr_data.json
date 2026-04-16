@@ -1,0 +1,63 @@
+{
+  "departments": [
+    {
+      "id": "100",
+      "name": "ChencyTech",
+      "parent_id": null,
+      "manager_employee_id": "1001"
+    },
+    {
+      "id": "200",
+      "name": "Engineering",
+      "parent_id": "100",
+      "manager_employee_id": "1001"
+    },
+    {
+      "id": "300",
+      "name": "Finance",
+      "parent_id": "100",
+      "manager_employee_id": "1003"
+    }
+  ],
+  "employees": [
+    {
+      "id": "1001",
+      "username": "alice.zhang",
+      "display_name": "Alice Zhang",
+      "first_name": "Alice",
+      "last_name": "Zhang",
+      "email": "alice.zhang@chencytech.com",
+      "department_id": "200",
+      "title": "Engineering Director",
+      "manager_employee_id": null,
+      "phone": "+86 13800000001",
+      "active": true
+    },
+    {
+      "id": "1002",
+      "username": "bob.li",
+      "display_name": "Bob Li",
+      "first_name": "Bob",
+      "last_name": "Li",
+      "email": "bob.li@chencytech.com",
+      "department_id": "200",
+      "title": "Backend Engineer",
+      "manager_employee_id": "1001",
+      "phone": "+86 13800000002",
+      "active": true
+    },
+    {
+      "id": "1003",
+      "username": "cathy.chen",
+      "display_name": "Cathy Chen",
+      "first_name": "Cathy",
+      "last_name": "Chen",
+      "email": "cathy.chen@chencytech.com",
+      "department_id": "300",
+      "title": "Finance Manager",
+      "manager_employee_id": null,
+      "phone": "+86 13800000003",
+      "active": false
+    }
+  ]
+}
