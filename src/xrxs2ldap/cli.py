@@ -3,13 +3,16 @@ from __future__ import annotations
 import argparse
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from xrxs2ldap.adapters.json_file import JsonFileAdapter
 from xrxs2ldap.adapters.xinrenxinshi import XinrenxinshiAdapter
 from xrxs2ldap.config import load_settings
 from xrxs2ldap.ldap_sync import LdapSyncService
+
+
+DEFAULT_TIMEZONE = timezone(timedelta(hours=8))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -97,7 +100,7 @@ def _run_sync_once(adapter, settings) -> None:
 
 
 def _timestamp() -> str:
-    return datetime.now().isoformat(timespec="seconds")
+    return datetime.now(DEFAULT_TIMEZONE).isoformat(timespec="seconds")
 
 
 if __name__ == "__main__":

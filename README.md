@@ -118,6 +118,8 @@ docker compose up -d xrxs2ldap
 
 By default the scheduler runs once immediately and then sleeps for `SYNC_INTERVAL_SECONDS`.
 
+Logs default to timezone `+08:00` and the Docker examples set `TZ=Asia/Shanghai`.
+
 ## Helper Scripts
 
 The `deploy/` directory contains a few convenience helpers:

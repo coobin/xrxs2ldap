@@ -1,5 +1,8 @@
 FROM python:3.12-slim
 
+ENV TZ=Asia/Shanghai
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
 COPY pyproject.toml README.md ./

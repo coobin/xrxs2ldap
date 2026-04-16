@@ -5,6 +5,8 @@ services:
     env_file:
       - .env
     environment:
+      - TZ=Asia/Shanghai
+      - PYTHONUNBUFFERED=1
       - LDAP_URI=ldap://openldap_chencytech:389
       - LDAP_BASE_DN=dc=chencytech,dc=com
       - LDAP_BIND_DN=cn=admin,dc=chencytech,dc=com
