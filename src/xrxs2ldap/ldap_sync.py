@@ -146,14 +146,20 @@ class LdapSyncService:
         department_members: dict[str, list[str]],
         stats: SyncStats,
     ) -> None:
-        name_counts: dict[str, int] = defaultdict(int)
+        departments_by_id = {department.id: department for department in departments}
+        name_counts: dict[tuple[str | None, str], int] = defaultdict(int)
         for department in departments:
-            name_counts[self._department_group_base_name(department)] += 1
+            name_counts[self._department_sibling_name_key(department, departments_by_id)] += 1
 
-        for department in departments:
-            group_name = self._department_group_name(department, name_counts)
+        for department in sorted(
+            departments,
+            key=lambda item: self._department_depth(item, departments_by_id),
+        ):
+            group_name = self._department_group_name(department, departments_by_id, name_counts)
+            group_dn = self._department_group_dn(department, departments_by_id, name_counts)
             changed = self._upsert_department_group(
                 connection,
+                group_dn,
                 group_name,
                 department.id,
                 department_members.get(department.id, []),
@@ -166,11 +172,11 @@ class LdapSyncService:
     def _upsert_department_group(
         self,
         connection: Connection,
+        dn: str,
         group_name: str,
         department_id: str,
         member_uids: list[str],
     ) -> str:
-        dn = self._department_group_dn(group_name)
         attrs = {
             "cn": [group_name],
             "gidNumber": [self._department_gid_number(department_id)],
@@ -357,17 +363,64 @@ class LdapSyncService:
     def _department_rdn_value(self, department_id: str) -> str:
         return f"dept-{department_id}"
 
-    def _department_group_name(self, department: Department, name_counts: dict[str, int]) -> str:
+    def _department_group_name(
+        self,
+        department: Department,
+        departments_by_id: dict[str, Department],
+        name_counts: dict[tuple[str | None, str], int],
+    ) -> str:
         base_name = self._department_group_base_name(department)
-        if name_counts[base_name] <= 1:
+        if name_counts[self._department_sibling_name_key(department, departments_by_id)] <= 1:
             return base_name
         return f"{base_name}-{department.id[:8]}"
 
     def _department_group_base_name(self, department: Department) -> str:
         return self.settings.group_name_aliases.get(department.name, department.name)
 
-    def _department_group_dn(self, group_name: str) -> str:
-        return f"cn={escape_rdn(group_name)},{self.settings.groups_base_dn}"
+    def _department_group_dn(
+        self,
+        department: Department,
+        departments_by_id: dict[str, Department],
+        name_counts: dict[tuple[str | None, str], int],
+    ) -> str:
+        path = self._department_group_path(department, departments_by_id)
+        rdns = [
+            f"cn={escape_rdn(self._department_group_name(item, departments_by_id, name_counts))}"
+            for item in reversed(path)
+        ]
+        return f"{','.join(rdns)},{self.settings.groups_base_dn}"
+
+    def _department_group_path(
+        self,
+        department: Department,
+        departments_by_id: dict[str, Department],
+    ) -> list[Department]:
+        path = [department]
+        seen_ids = {department.id}
+        current = department
+        while current.parent_id:
+            parent = departments_by_id.get(current.parent_id)
+            if parent is None or parent.id in seen_ids:
+                break
+            path.append(parent)
+            seen_ids.add(parent.id)
+            current = parent
+        return list(reversed(path))
+
+    def _department_depth(
+        self,
+        department: Department,
+        departments_by_id: dict[str, Department],
+    ) -> int:
+        return len(self._department_group_path(department, departments_by_id))
+
+    def _department_sibling_name_key(
+        self,
+        department: Department,
+        departments_by_id: dict[str, Department],
+    ) -> tuple[str | None, str]:
+        parent_id = department.parent_id if department.parent_id in departments_by_id else None
+        return (parent_id, self._department_group_base_name(department))
 
     def _department_gid_number(self, department_id: str) -> str:
         return str(100000 + zlib.crc32(department_id.encode("utf-8")) % 800000)
