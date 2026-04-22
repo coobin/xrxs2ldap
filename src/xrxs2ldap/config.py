@@ -34,6 +34,7 @@ class Settings:
     ldap_base_dn: str
     people_ou: str
     departments_ou: str
+    groups_ou: str
     dry_run: bool
     archive_missing: bool
     sync_interval_seconds: int
@@ -55,6 +56,10 @@ class Settings:
     def departments_base_dn(self) -> str:
         return f"{self.departments_ou},{self.ldap_base_dn}"
 
+    @property
+    def groups_base_dn(self) -> str:
+        return f"{self.groups_ou},{self.ldap_base_dn}"
+
 
 def load_settings() -> Settings:
     base_dn = _env("LDAP_BASE_DN", "dc=chencytech,dc=com")
@@ -66,6 +71,7 @@ def load_settings() -> Settings:
         ldap_base_dn=base_dn,
         people_ou=_env("LDAP_PEOPLE_OU", "ou=people") or "ou=people",
         departments_ou=_env("LDAP_DEPARTMENTS_OU", "ou=departments") or "ou=departments",
+        groups_ou=_env("LDAP_GROUPS_OU", "ou=groups") or "ou=groups",
         dry_run=_bool_env("DRY_RUN", True),
         archive_missing=_bool_env("ARCHIVE_MISSING_USERS", False),
         sync_interval_seconds=_int_env("SYNC_INTERVAL_SECONDS", 3600),

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import zlib
 from collections import defaultdict
 from dataclasses import dataclass
 
@@ -17,6 +18,8 @@ class SyncStats:
     employees_created: int = 0
     employees_updated: int = 0
     employees_archived: int = 0
+    groups_created: int = 0
+    groups_updated: int = 0
 
 
 @dataclass(slots=True)
@@ -50,7 +53,13 @@ class LdapSyncService:
         try:
             self._ensure_base_entries(connection)
             department_dns = self._sync_departments(connection, snapshot.departments, stats)
-            employee_dns = self._sync_employees(connection, snapshot.employees, department_dns, stats)
+            employee_dns, department_members = self._sync_employees(
+                connection,
+                snapshot.employees,
+                department_dns,
+                stats,
+            )
+            self._sync_department_groups(connection, snapshot.departments, department_members, stats)
             if self.settings.archive_missing:
                 self._archive_missing_employees(connection, employee_dns, stats)
             return stats
@@ -69,6 +78,12 @@ class LdapSyncService:
             self.settings.departments_base_dn,
             ["top", "organizationalUnit"],
             {"ou": ["departments"]},
+        )
+        self._ensure_entry(
+            connection,
+            self.settings.groups_base_dn,
+            ["top", "organizationalUnit"],
+            {"ou": ["groups"]},
         )
 
     def _sync_departments(
@@ -106,8 +121,9 @@ class LdapSyncService:
         employees: list[Employee],
         department_dns: dict[str, str],
         stats: SyncStats,
-    ) -> dict[str, str]:
+    ) -> tuple[dict[str, str], dict[str, list[str]]]:
         employee_dns: dict[str, str] = {}
+        department_members: dict[str, list[str]] = defaultdict(list)
         by_employee_id = {employee.id: employee for employee in employees}
         display_name_counts: dict[str, int] = defaultdict(int)
         for employee in employees:
@@ -145,6 +161,8 @@ class LdapSyncService:
             claimed_dns.add(dn)
             claimed_uids.add(uid)
             employee_dns[employee.id] = dn
+            if employee.department_id and employee.active:
+                department_members[employee.department_id].append(uid)
             attrs = self._employee_attributes(employee, by_employee_id, department_dns, existing_entry, uid)
             changed = self._upsert_entry(
                 connection,
@@ -159,7 +177,71 @@ class LdapSyncService:
                 existing.by_employee_number[employee.id] = dn
             elif changed == "updated":
                 stats.employees_updated += 1
-        return employee_dns
+        return employee_dns, {key: sorted(set(value)) for key, value in department_members.items()}
+
+    def _sync_department_groups(
+        self,
+        connection: Connection,
+        departments: list[Department],
+        department_members: dict[str, list[str]],
+        stats: SyncStats,
+    ) -> None:
+        name_counts: dict[str, int] = defaultdict(int)
+        for department in departments:
+            name_counts[department.name] += 1
+
+        for department in departments:
+            group_name = self._department_group_name(department, name_counts)
+            changed = self._upsert_department_group(
+                connection,
+                group_name,
+                department.id,
+                department_members.get(department.id, []),
+            )
+            if changed == "created":
+                stats.groups_created += 1
+            elif changed == "updated":
+                stats.groups_updated += 1
+
+    def _upsert_department_group(
+        self,
+        connection: Connection,
+        group_name: str,
+        department_id: str,
+        member_uids: list[str],
+    ) -> str:
+        dn = self._department_group_dn(group_name)
+        attrs = {
+            "cn": [group_name],
+            "gidNumber": [self._department_gid_number(department_id)],
+        }
+        if member_uids:
+            attrs["memberUid"] = member_uids
+
+        log_label = f"group {group_name} ({department_id})"
+        if not connection.search(dn, "(objectClass=*)", attributes=["memberUid"], search_scope=BASE):
+            self._add_entry(connection, dn, ["top", "posixGroup"], attrs, log_label)
+            return "created"
+
+        entry = connection.entries[0]
+        existing = sorted(str(value) for value in entry["memberUid"].values) if "memberUid" in entry else []
+        expected = sorted(member_uids)
+        if existing == expected:
+            return "unchanged"
+
+        changes = {"memberUid": [(MODIFY_REPLACE, member_uids)]}
+        if self.settings.dry_run:
+            print(f"DRY-RUN modify {dn}: {changes}")
+        else:
+            if not connection.modify(dn, changes):
+                raise RuntimeError(f"Failed to modify {dn}: {connection.result}")
+            self._log_change(
+                action="updated",
+                label=log_label,
+                dn=dn,
+                field_names=["memberUid"],
+            )
+        return "updated"
 
     def _employee_attributes(
         self,
@@ -301,7 +383,12 @@ class LdapSyncService:
         if self.settings.dry_run:
             print(f"DRY-RUN add {dn}: {attributes}")
             return
-        if not connection.add(dn, object_classes, attributes):
+        non_empty_attributes = {
+            key: value
+            for key, value in attributes.items()
+            if value
+        }
+        if not connection.add(dn, object_classes, non_empty_attributes):
             raise RuntimeError(f"Failed to add {dn}: {connection.result}")
         self._log_change(
             action="created",
@@ -315,6 +402,17 @@ class LdapSyncService:
 
     def _department_dn(self, department_id: str) -> str:
         return f"ou={self._department_rdn_value(department_id)},{self.settings.departments_base_dn}"
+
+    def _department_group_name(self, department: Department, name_counts: dict[str, int]) -> str:
+        if name_counts[department.name] <= 1:
+            return department.name
+        return f"{department.name}-{department.id[:8]}"
+
+    def _department_group_dn(self, group_name: str) -> str:
+        return f"cn={escape_rdn(group_name)},{self.settings.groups_base_dn}"
+
+    def _department_gid_number(self, department_id: str) -> str:
+        return str(100000 + zlib.crc32(department_id.encode("utf-8")) % 800000)
 
     def _employee_dn(self, display_name: str) -> str:
         return f"cn={escape_rdn(display_name)},{self.settings.people_base_dn}"

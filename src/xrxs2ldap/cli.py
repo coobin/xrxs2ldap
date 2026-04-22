@@ -92,6 +92,8 @@ def _run_sync_once(adapter, settings) -> None:
                 "employees_created": stats.employees_created,
                 "employees_updated": stats.employees_updated,
                 "employees_archived": stats.employees_archived,
+                "groups_created": stats.groups_created,
+                "groups_updated": stats.groups_updated,
                 "dry_run": settings.dry_run,
             },
         )
