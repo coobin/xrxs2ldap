@@ -155,6 +155,40 @@ authentication_backend:
 
 Nextcloud 的 `user_oidc` 可将 `groups` claim 映射为 Nextcloud 组。
 
+## Nextcloud 组同步
+
+如果不希望 Nextcloud 自动按 OIDC `groups` claim 创建部门组，可以关闭 `user_oidc` 的组自动同步，然后在 Nextcloud 服务器本机运行：
+
+```bash
+xrxs2ldap-nextcloud-groups --dry-run
+DRY_RUN=false xrxs2ldap-nextcloud-groups
+```
+
+这个命令会：
+
+- 把所有 HR active 用户加入默认组 `ALL`
+- 用 HR 部门名匹配 Nextcloud 组的界面显示名 `displayname`
+- 只在匹配到唯一现有组时把用户加入该部门组
+- 找不到同名显示组时不创建新组，用户只保留在 `ALL`
+- 从它管理的部门组里移除用户的旧部门成员关系
+
+它不会按 Nextcloud 内部组 ID 匹配部门名，但最终加组仍会使用匹配到的内部 `gid`，因为 Nextcloud 权限系统使用 `gid`。
+
+相关配置：
+
+```dotenv
+NEXTCLOUD_APP_CONTAINER=nextcloud-app-1
+NEXTCLOUD_DB_CONTAINER=nextcloud-db-1
+NEXTCLOUD_DB_HOST=db
+NEXTCLOUD_DB_PORT=3306
+NEXTCLOUD_DB_NAME=nextcloud
+NEXTCLOUD_DB_USER=nextcloud
+NEXTCLOUD_DB_PASSWORD=
+NEXTCLOUD_DEFAULT_GROUP=ALL
+```
+
+如果 `NEXTCLOUD_DB_HOST` 为空，命令会通过宿主机 Docker CLI 调用 Nextcloud 容器和数据库容器；如果设置了 `NEXTCLOUD_DB_HOST`，命令会直接连接 Nextcloud 数据库，适合放在 Nextcloud 的 Docker 网络里运行。
+
 ## 辅助脚本
 
 `deploy/` 目录包含几个运行脚本：

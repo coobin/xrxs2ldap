@@ -10,12 +10,14 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "ldap3>=2.9.1",
+  "PyMySQL>=1.1.1",
   "requests>=2.32.0",
 ]
 
 [project.scripts]
 xrxs2ldap = "xrxs2ldap.cli:main"
 hr2ldap = "xrxs2ldap.cli:main"
+xrxs2ldap-nextcloud-groups = "xrxs2ldap.nextcloud_cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
