@@ -64,14 +64,6 @@ class Settings:
     xrxs_app_id: str | None
     xrxs_app_secret: str | None
     xrxs_company_id: str | None
-    nextcloud_app_container: str
-    nextcloud_db_container: str
-    nextcloud_db_host: str | None
-    nextcloud_db_port: int
-    nextcloud_db_name: str
-    nextcloud_db_user: str
-    nextcloud_db_password: str | None
-    nextcloud_default_group: str
 
     @property
     def people_base_dn(self) -> str:
@@ -105,12 +97,4 @@ def load_settings() -> Settings:
         xrxs_app_id=_env("XRXS_APP_ID"),
         xrxs_app_secret=_env("XRXS_APP_SECRET"),
         xrxs_company_id=_env("XRXS_COMPANY_ID"),
-        nextcloud_app_container=_env("NEXTCLOUD_APP_CONTAINER", "nextcloud-app-1") or "nextcloud-app-1",
-        nextcloud_db_container=_env("NEXTCLOUD_DB_CONTAINER", "nextcloud-db-1") or "nextcloud-db-1",
-        nextcloud_db_host=_env("NEXTCLOUD_DB_HOST"),
-        nextcloud_db_port=_int_env("NEXTCLOUD_DB_PORT", 3306),
-        nextcloud_db_name=_env("NEXTCLOUD_DB_NAME", "nextcloud") or "nextcloud",
-        nextcloud_db_user=_env("NEXTCLOUD_DB_USER", "nextcloud") or "nextcloud",
-        nextcloud_db_password=_env("NEXTCLOUD_DB_PASSWORD"),
-        nextcloud_default_group=_env("NEXTCLOUD_DEFAULT_GROUP", "ALL") or "ALL",
     )
