@@ -23,12 +23,7 @@
 部门名称和员工属性可以更新，但用户 DN 会尽量保持稳定。
 
 部门组使用 `posixGroup`，按 HR 部门父子关系嵌套在 `ou=groups` 下，成员通过 `memberUid` 维护，值与员工 `uid` 一致。这样 Authelia 可以通过 LDAP 查询得到用户所属部门，并在 OIDC token 中输出 `groups`，Nextcloud 等服务即可同步部门组。
-
-如果历史系统里已经存在旧组名，可以用 `LDAP_GROUP_NAME_ALIASES` 把新仁薪事部门名映射到旧组名，避免 Nextcloud 生成重复组。例如：
-
-```env
-LDAP_GROUP_NAME_ALIASES=人力资源部=行政人事部
-```
+部门组名默认与薪人薪事部门名称保持一致，不做额外重命名。
 
 如果同一个父部门下有多个部门名称重复，部门组名会追加部门 ID 前缀片段，例如：
 
@@ -101,7 +96,6 @@ LDAP_BIND_DN=cn=admin,dc=example,dc=com
 LDAP_BIND_PASSWORD=change-me
 LDAP_PEOPLE_OU=ou=people
 LDAP_GROUPS_OU=ou=groups
-LDAP_GROUP_NAME_ALIASES=人力资源部=行政人事部
 ```
 
 使用薪人薪事数据源：

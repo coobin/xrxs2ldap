@@ -375,7 +375,7 @@ class LdapSyncService:
         return f"{base_name}-{department.id[:8]}"
 
     def _department_group_base_name(self, department: Department) -> str:
-        return self.settings.group_name_aliases.get(department.name, department.name)
+        return department.name
 
     def _department_group_dn(
         self,
