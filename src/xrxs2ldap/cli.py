@@ -87,8 +87,6 @@ def _run_sync_once(adapter, settings) -> None:
         print(
             f"{_timestamp()} sync finished:",
             {
-                "departments_created": stats.departments_created,
-                "departments_updated": stats.departments_updated,
                 "employees_created": stats.employees_created,
                 "employees_updated": stats.employees_updated,
                 "employees_archived": stats.employees_archived,

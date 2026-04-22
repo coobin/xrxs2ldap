@@ -13,8 +13,6 @@ from xrxs2ldap.models import Department, Employee, HrSnapshot
 
 @dataclass(slots=True)
 class SyncStats:
-    departments_created: int = 0
-    departments_updated: int = 0
     employees_created: int = 0
     employees_updated: int = 0
     employees_archived: int = 0
@@ -52,11 +50,9 @@ class LdapSyncService:
         )
         try:
             self._ensure_base_entries(connection)
-            department_dns = self._sync_departments(connection, snapshot.departments, stats)
             employee_dns, department_members = self._sync_employees(
                 connection,
                 snapshot.employees,
-                department_dns,
                 stats,
             )
             self._sync_department_groups(connection, snapshot.departments, department_members, stats)
@@ -75,51 +71,15 @@ class LdapSyncService:
         )
         self._ensure_entry(
             connection,
-            self.settings.departments_base_dn,
-            ["top", "organizationalUnit"],
-            {"ou": ["departments"]},
-        )
-        self._ensure_entry(
-            connection,
             self.settings.groups_base_dn,
             ["top", "organizationalUnit"],
             {"ou": ["groups"]},
         )
 
-    def _sync_departments(
-        self,
-        connection: Connection,
-        departments: list[Department],
-        stats: SyncStats,
-    ) -> dict[str, str]:
-        department_dns: dict[str, str] = {}
-        for department in departments:
-            dn = self._department_dn(department.id)
-            department_dns[department.id] = dn
-            attrs = {
-                "ou": [self._department_rdn_value(department.id)],
-                "description": [department.name],
-            }
-            if department.parent_id:
-                attrs["businessCategory"] = [f"parent:{department.parent_id}"]
-            changed = self._upsert_entry(
-                connection,
-                dn,
-                ["top", "organizationalUnit", "extensibleObject"],
-                attrs,
-                log_label=f"department {department.name} ({department.id})",
-            )
-            if changed == "created":
-                stats.departments_created += 1
-            elif changed == "updated":
-                stats.departments_updated += 1
-        return department_dns
-
     def _sync_employees(
         self,
         connection: Connection,
         employees: list[Employee],
-        department_dns: dict[str, str],
         stats: SyncStats,
     ) -> tuple[dict[str, str], dict[str, list[str]]]:
         employee_dns: dict[str, str] = {}
@@ -163,7 +123,7 @@ class LdapSyncService:
             employee_dns[employee.id] = dn
             if employee.department_id and employee.active:
                 department_members[employee.department_id].append(uid)
-            attrs = self._employee_attributes(employee, by_employee_id, department_dns, existing_entry, uid)
+            attrs = self._employee_attributes(employee, by_employee_id, existing_entry, uid)
             changed = self._upsert_entry(
                 connection,
                 dn,
@@ -188,7 +148,7 @@ class LdapSyncService:
     ) -> None:
         name_counts: dict[str, int] = defaultdict(int)
         for department in departments:
-            name_counts[department.name] += 1
+            name_counts[self._department_group_base_name(department)] += 1
 
         for department in departments:
             group_name = self._department_group_name(department, name_counts)
@@ -247,7 +207,6 @@ class LdapSyncService:
         self,
         employee: Employee,
         by_employee_id: dict[str, Employee],
-        department_dns: dict[str, str],
         existing_entry,
         uid: str,
     ) -> dict[str, list[str]]:
@@ -281,9 +240,7 @@ class LdapSyncService:
             attrs["mail"] = [employee.email]
         if employee.department_id:
             attrs["departmentNumber"] = [employee.department_id]
-            department_dn = department_dns.get(employee.department_id)
-            if department_dn:
-                attrs["ou"] = [self._department_rdn_value(employee.department_id)]
+            attrs["ou"] = [self._department_rdn_value(employee.department_id)]
         if employee.title:
             attrs["title"] = [employee.title]
         if employee.phone:
@@ -378,7 +335,7 @@ class LdapSyncService:
         dn: str,
         object_classes: list[str],
         attributes: dict[str, list[str]],
-        log_label: str,
+        log_label: str | None = None,
     ) -> None:
         if self.settings.dry_run:
             print(f"DRY-RUN add {dn}: {attributes}")
@@ -392,7 +349,7 @@ class LdapSyncService:
             raise RuntimeError(f"Failed to add {dn}: {connection.result}")
         self._log_change(
             action="created",
-            label=log_label,
+            label=log_label or dn,
             dn=dn,
             field_names=sorted(attributes),
         )
@@ -400,13 +357,14 @@ class LdapSyncService:
     def _department_rdn_value(self, department_id: str) -> str:
         return f"dept-{department_id}"
 
-    def _department_dn(self, department_id: str) -> str:
-        return f"ou={self._department_rdn_value(department_id)},{self.settings.departments_base_dn}"
-
     def _department_group_name(self, department: Department, name_counts: dict[str, int]) -> str:
-        if name_counts[department.name] <= 1:
-            return department.name
-        return f"{department.name}-{department.id[:8]}"
+        base_name = self._department_group_base_name(department)
+        if name_counts[base_name] <= 1:
+            return base_name
+        return f"{base_name}-{department.id[:8]}"
+
+    def _department_group_base_name(self, department: Department) -> str:
+        return self.settings.group_name_aliases.get(department.name, department.name)
 
     def _department_group_dn(self, group_name: str) -> str:
         return f"cn={escape_rdn(group_name)},{self.settings.groups_base_dn}"

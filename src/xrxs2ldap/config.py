@@ -25,6 +25,23 @@ def _int_env(name: str, default: int) -> int:
     return int(value)
 
 
+def _mapping_env(name: str) -> dict[str, str]:
+    value = _env(name, "") or ""
+    mapping: dict[str, str] = {}
+    for item in value.split(","):
+        if not item.strip():
+            continue
+        source, separator, target = item.partition("=")
+        if not separator:
+            raise ValueError(f"{name} item must use source=target format: {item!r}")
+        source = source.strip()
+        target = target.strip()
+        if not source or not target:
+            raise ValueError(f"{name} item cannot contain empty source or target: {item!r}")
+        mapping[source] = target
+    return mapping
+
+
 @dataclass(slots=True)
 class Settings:
     hr_source: str
@@ -33,8 +50,8 @@ class Settings:
     ldap_bind_password: str
     ldap_base_dn: str
     people_ou: str
-    departments_ou: str
     groups_ou: str
+    group_name_aliases: dict[str, str]
     dry_run: bool
     archive_missing: bool
     sync_interval_seconds: int
@@ -53,10 +70,6 @@ class Settings:
         return f"{self.people_ou},{self.ldap_base_dn}"
 
     @property
-    def departments_base_dn(self) -> str:
-        return f"{self.departments_ou},{self.ldap_base_dn}"
-
-    @property
     def groups_base_dn(self) -> str:
         return f"{self.groups_ou},{self.ldap_base_dn}"
 
@@ -70,8 +83,8 @@ def load_settings() -> Settings:
         ldap_bind_password=_env("LDAP_BIND_PASSWORD", "") or "",
         ldap_base_dn=base_dn,
         people_ou=_env("LDAP_PEOPLE_OU", "ou=people") or "ou=people",
-        departments_ou=_env("LDAP_DEPARTMENTS_OU", "ou=departments") or "ou=departments",
         groups_ou=_env("LDAP_GROUPS_OU", "ou=groups") or "ou=groups",
+        group_name_aliases=_mapping_env("LDAP_GROUP_NAME_ALIASES"),
         dry_run=_bool_env("DRY_RUN", True),
         archive_missing=_bool_env("ARCHIVE_MISSING_USERS", False),
         sync_interval_seconds=_int_env("SYNC_INTERVAL_SECONDS", 3600),
