@@ -233,6 +233,12 @@ class LdapSyncService:
             if existing_display_name and existing_display_name != employee.display_name:
                 display_name = existing_display_name
 
+        employee_type = "active" if employee.active else "inactive"
+        # Do not auto-reactivate manually deactivated LDAP users.
+        existing_employee_type = self._first_attr_value(existing_entry, "employeeType")
+        if employee.active and existing_employee_type and existing_employee_type.lower() in {"deactive", "inactive"}:
+            employee_type = existing_employee_type
+
         attrs: dict[str, list[str]] = {
             "cn": [cn],
             "sn": [surname],
@@ -240,7 +246,7 @@ class LdapSyncService:
             "employeeNumber": [employee.id],
             "givenName": [given_name],
             "displayName": [display_name],
-            "employeeType": ["active" if employee.active else "inactive"],
+            "employeeType": [employee_type],
         }
         if employee.email:
             attrs["mail"] = [employee.email]
